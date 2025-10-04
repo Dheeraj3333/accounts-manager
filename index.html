@@ -1,0 +1,1905 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Ledger Groups</title>
+  <!-- WhatsApp-style icons from Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- System font stack similar to WhatsApp -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+</head>
+
+<body x-data="App" x-init="init()">
+
+  <!-- View Ledger Page -->
+
+  <template x-if="appPage == 'LedgerView'">
+    <div x-ref="ledgerViewPage" class="ledger-view">
+      <!-- Header -->
+      <div class="temp-head Ledger-view-header">
+        <div class="head-plus-btn">
+          <button @click="()=>{
+            page(previousRoute.pop());
+            getBottomNav();
+            hideSuggestedLedgers();
+          }" class="back-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <div :style="`background: ${LedgerManagement.opened?.color}`" class="ledger-avatar">
+            <template x-if="LedgerManagement.opened?.icon">
+              <i :class="LedgerManagement.opened?.icon"></i>
+            </template>
+            <template x-if="!LedgerManagement.opened?.icon">
+              <span x-text="LedgerManagement.opened?.name.charAt(0).toUpperCase()"></span>
+            </template>
+          </div>
+          <h2 x-text="LedgerManagement.opened?.name"></h2>
+        </div>
+        <div class="total-amount">
+          <span class="total-label">Total</span>
+          <span class="total-value" x-text="LedgerManagement.opened?.total ?? 0"></span>
+        </div>
+      </div>
+
+      <!-- Ledger Entries -->
+      <div class="ledger-details inner-page">
+        <template x-if="EntriesManagement.list.length > 0">
+          <div>
+            <template x-for="entry in EntriesManagement.list" :key="entry.id">
+              <div>
+                <!-- (from_ledger) -->
+                <template x-if="EntriesManagement.ledgerName === entry.from_ledger">
+                  <div x-data="{open:false}" class="entry-row sent">
+
+                    <div class="entry-bubble sent-bubble" @click="()=>{
+                      open = true
+                    }" @click.outside="()=>{
+                      open=false
+                    }">
+
+                      <template x-if="open">
+                        <!-- actions absolute -->
+                        <div class="entry-actions">
+                          <button class="entry-edit-btn" @click="handleEntrieEditClick(entry)">
+                            <i class="fas fa-edit"></i><span>Edit</span>
+                          </button>
+                          <button class="entry-delete-btn" @click="handleDeleteEntry(entry.id)">
+                            <i class="fas fa-trash"></i><span>Del</span>
+                          </button>
+                          <button class="entry-swap-btn" @click="()=>{
+                            EntriesManagement.targetEntry = entry;
+                            handleSwapEntry()
+                          }">
+                            <i class="fa-solid fa-right-left"></i><span>Swap</span>
+                          </button>
+                        </div>
+                      </template>
+
+                      <div class="entry-header">
+                        <strong x-text="entry.description || 'No Description'"></strong>
+                      </div>
+                      <div class="entry-body">
+                        <div class="amount">₹ <span x-text="entry.amount"></span></div>
+                        <div class="ledger-info">To: <span x-text="entry.to_ledger"></span></div>
+                        <div class="entry-time" x-text="new Date(entry.created_on).toLocaleString()"></div>
+                      </div>
+                      <template x-if="entry.image">
+                        <img :src="entry.image" alt="attached image" class="entry-image">
+                      </template>
+                      <div class="message-tail sent-tail">
+                      </div>
+
+                    </div>
+
+                  </div>
+                </template>
+
+                <!-- (to_ledger) -->
+                <template x-if="EntriesManagement.ledgerName !== entry.from_ledger">
+                  <div x-data="{open:false}" class="entry-row received">
+
+
+                    <div class="entry-bubble received-bubble" @click="()=>{
+                      open = true
+                    }" @click.outside="()=>{
+                      open = false
+                    }">
+
+                      <!-- actions absolute -->
+                      <template x-if="open">
+                        <div class="entry-actions received-actions">
+                          <button class="entry-edit-btn" @click="handleEntrieEditClick(entry)">
+                            <i class="fas fa-edit"></i><span>Edit</span>
+                          </button>
+                          <button class="entry-delete-btn" @click="handleDeleteEntry(entry.id)">
+                            <i class="fas fa-trash"></i><span>Del</span>
+                          </button>
+                          <button class="entry-swap-btn" @click="()=>{
+                            EntriesManagement.targetEntry = entry;
+                            handleSwapEntry()
+                          }">
+                            <i class="fa-solid fa-right-left"></i><span>Swap</span>
+                          </button>
+                        </div>
+                      </template>
+
+                      <div class="entry-header">
+                        <strong x-text="entry.description || 'No Description'"></strong>
+                      </div>
+                      <div class="entry-body">
+                        <div class="amount">₹ <span x-text="entry.amount"></span></div>
+                        <div class="ledger-info">From: <span x-text="entry.from_ledger"></span></div>
+                        <div class="entry-time" x-text="new Date(entry.created_on).toLocaleString()"></div>
+                      </div>
+                      <template x-if="entry.image">
+                        <img :src="entry.image" alt="attached image" class="entry-image">
+                      </template>
+                      <div class="message-tail received-tail"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- If no entries exist -->
+        <template x-if="EntriesManagement.list.length === 0">
+          <div class="no-entries">
+            <i class="fas fa-comments"></i>
+            <p>No entries found for this ledger.</p>
+          </div>
+        </template>
+      </div>
+
+      <!-- Entry Creator -->
+      <div class="entry-creator" x-ref="entryCreator">
+        <div class="entry-creator-inner">
+          <div class="input-container">
+            <div class="placeholder">
+              <span class="emptySpace" x-ref="emptySpace"></span>
+              <span class="placeholderText" x-text="EntriesManagement.placeholder"></span>
+            </div>
+
+            <!-- suggestion box -->
+            <div x-ref="suggestionLedgers" class="suggestion-box">
+              <template x-if="LedgerManagement.filteredList.length > 0">
+                <template x-for="ledger in LedgerManagement.filteredList" :key="ledger.name">
+                  <template x-if="ledger.name != EntriesManagement.ledgerName">
+                    <!-- available ledger -->
+                    <div class="suggestion-item" @click="handleSuggestionClick(ledger.name)">
+                      <!-- when there is icon -->
+                      <template x-if="ledger.icon">
+                        <div class="suggestion-avatar" :style="`background: ${ledger.color}`">
+                          <i :class="ledger.icon"></i>
+                        </div>
+                      </template>
+                      <!-- when there is no icon, using first character of name -->
+                      <template x-if="!ledger.icon">
+                        <div class="suggestion-avatar" :style="`background: ${ledger.color}`">
+                          <span x-text="ledger.name.charAt(0).toUpperCase()"></span>
+                        </div>
+                      </template>
+                      <span x-text="ledger.name"></span>
+                    </div>
+                  </template>
+                </template>
+              </template>
+
+              <template x-if="LedgerManagement.filteredList.length === 0">
+                <div class="no-suggestions">
+                  <p>No existing ledgers found.</p>
+                  <div class="new-ledger-suggestion">
+                    <span>Creating: </span>
+                    <span style="padding: 12px 16px;" class="new-ledger-name"
+                      @click="handleSuggestionClick(EntriesManagement.createLedgerName)"
+                      x-text="EntriesManagement.createLedgerName"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <input x-ref="entryInput" @input="handleEntrieCreation($event)" @focus="removeBottomNav()"
+              @blur="getBottomNav()" @keydown.enter="handleEntryStepFinal()" class="entry-input" />
+
+            <div style="display: flex;gap: 4px;">
+              <button class="send-btn reverse-entry-btn" @click="handleEntryStepFinal(true)">
+                <i class="fas fa-paper-plane"></i>
+              </button><button class="send-btn" @click="handleEntryStepFinal()">
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Edit Entry Page -->
+  <template x-if="appPage == 'Entrie/edit'">
+    <div class="edit-entry-page">
+      <div class="temp-head">
+        <div class="head-plus-btn">
+          <button @click="page(previousRoute.pop())" class="back-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h2>Edit Entry</h2>
+        </div>
+        <span></span>
+      </div>
+      <div class="inner-page">
+        <div class="input-group">
+          <label for="edit-entry-amount"><i class="fas fa-rupee-sign"></i> Amount</label>
+          <input id="edit-entry-amount" x-model="EntriesManagement.editing.amount" type="number" min="1"
+            class="app-input" />
+        </div>
+
+        <div class="input-group">
+          <label for="edit-entry-description"><i class="fas fa-align-left"></i> Description</label>
+          <input id="edit-entry-description" x-model="EntriesManagement.editing.description" type="text"
+            class="app-input" />
+        </div>
+
+        <div class="input-group">
+          <template x-if="EntriesManagement.editing.image">
+            <div class="current-image">
+              <label><i class="fas fa-image"></i> Current Picture</label>
+              <img :src="EntriesManagement.editing.image" alt="attached picture" class="preview-image">
+            </div>
+          </template>
+          <label for="edit-entry-image"><i class="fas fa-camera"></i> Upload New Picture</label>
+          <input id="edit-entry-image" type="file" @change="handleImageUploadAtEdit($event)" accept="image/*"
+            class="file-input" />
+        </div>
+
+        <button class="app-btn primary" @click="updateEntry()">
+          <i class="fas fa-save"></i> Update Entry
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Accounts Page -->
+  <template x-if="appPage == 'Accounts'">
+    <div class="accounts-page">
+      <div class="temp-head">
+        <h2>Accounts</h2>
+        <button class="app-btn primary" @click="()=>{previousRoute.push('Accounts');page('LedgerManagement');}">
+          <i class="fas fa-cog"></i> Manage
+        </button>
+      </div>
+
+      <div class="inner-page">
+        <!-- Search field -->
+        <div class="search-container">
+          <i class="fas fa-search search-icon"></i>
+          <input class="search-field" type="text" @input="handleLedgerSearch()" x-model="LedgerManagement.search"
+            placeholder="Search ledgers..." />
+        </div>
+
+        <!-- Groups slide -->
+        <template x-if="GroupManagement?.list?.length > 0">
+          <div class="groups-container">
+            <template x-for="group in GroupManagement?.list">
+              <button class="group-chip" @click="openGroup(group.name)" x-text="group.name"></button>
+            </template>
+            <button class="group-chip add-group"
+              @click="()=>{page('GroupManagement/add'); GroupManagement.newName = '';previousRoute.push('Accounts');}">
+              <i class="fas fa-plus"></i>
+            </button>
+          </div>
+        </template>
+
+        <!-- Ledgers list -->
+        <template x-if="LedgerManagement.list.length > 0">
+          <div class="ledger-list">
+            <template x-for="ledger in LedgerManagement.list" :key="ledger.name">
+              <div class="ledger-item" @click="openLedger(ledger.name)">
+                <div :style="`background: ${ledger.color}`" class="ledger-avatar">
+                  <template x-if="ledger.icon">
+                    <i :class="ledger.icon"></i>
+                  </template>
+                  <template x-if="!ledger.icon">
+                    <span x-text="ledger.name.charAt(0).toUpperCase()"></span>
+                  </template>
+                </div>
+                <div class="ledger-content">
+                  <div class="ledger-header">
+                    <h3 x-text="ledger.name"></h3>
+                    <span class="total-amount">₹<span x-text="ledger.total || 0"></span></span>
+                  </div>
+                  <div class="ledger-subtitle">
+                    <template x-if="!ledger.latest_entrie_amount">
+                      <span class="no-entries">No entries yet</span>
+                    </template>
+                    <template x-if="ledger.latest_entrie_amount">
+                      <div class="latest-entry">
+                        <div>
+                          <div class="collect-name-amount">
+                            <template x-if="ledger.name != ledger.latest_entrie_from_ledger">
+                              <span class="entry-direction">from <span
+                                  x-text="ledger.latest_entrie_from_ledger"></span></span>
+                            </template>
+                            <template x-if="ledger.name == ledger.latest_entrie_from_ledger">
+                              <span class="entry-direction">to <span
+                                  x-text="ledger.latest_entrie_to_ledger"></span></span>
+                            </template>
+
+                            <span class="entry-amount">₹<span x-text="ledger.latest_entrie_amount"></span></span>
+
+                          </div>
+                        </div>
+                        <span class="entry-time" x-text="ledger.latest_entrie_time 
+                          ? new Date(ledger.latest_entrie_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })
+                          : ''"></span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- If no ledgers exist -->
+        <template x-if="LedgerManagement.list.length === 0">
+          <div class="no-data">
+            <i class="fas fa-book-open"></i>
+            <p>No ledgers found. Add one from Manage Ledgers.</p>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+
+  <!-- Settings Page -->
+  <template x-if="appPage == 'Settings'">
+    <div class="settings-page">
+      <div class="temp-head">
+        <div class="head-plus-btn">
+          <button @click="page('Accounts')" class="back-btn">
+            <i class="fas fa-chevron-left"></i> <span>Home</span>
+          </button>
+        </div>
+        <h2>Settings</h2>
+        <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+      </div>
+      <div class="inner-page">
+        <div class="settings-item">
+          <div class="setting-info">
+            <i class="fas fa-layer-group"></i>
+            <span>Group Management</span>
+          </div>
+          <button class="app-btn secondary" @click="()=>{page('GroupManagement');previousRoute.push('Settings');}">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+
+        <div class="settings-item">
+          <div class="setting-info">
+            <i class="fas fa-book"></i>
+            <span>Ledger Management</span>
+          </div>
+          <button class="app-btn secondary" @click="()=>{page('LedgerManagement');previousRoute.push('Settings');}">
+            <i class="fas fa-chevron-right"></i>
+          </button>
+        </div>
+
+        <!-- just needed in dev mode -->
+        <div class="settings-item danger">
+          <div class="setting-info">
+            <i class="fas fa-exclamation-triangle"></i>
+            <span>Delete Database (BETA)</span>
+          </div>
+          <button class="app-btn danger" @click="BETAResetDB()">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Group Management Page -->
+  <template x-if="appPage == 'GroupManagement'">
+    <div class="group-management-page">
+      <div class="temp-head">
+        <div class="head-plus-btn">
+          <button @click="()=>{
+            page(previousRoute.pop());
+            GroupManagement.newColor = '#333';
+          }" class="back-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h2>Ledger Groups</h2>
+        </div>
+        <button class="app-btn primary"
+          @click="()=>{page('GroupManagement/add'); previousRoute.push('GroupManagement'); GroupManagement.newName = '', GroupManagement.newColor = '#'+Math.floor(Math.random()*16777215).toString(16);}">
+          <i class="fas fa-plus"></i> Create
+        </button>
+      </div>
+      <div class="inner-page">
+        <div class="groups-list">
+          <template x-for="group in GroupManagement.list" :key="group.name">
+            <div class="group-item">
+              <div :style="`background: ${group.color}`" class="group-avatar">
+                <i class="fas fa-layer-group"></i>
+              </div>
+              <div class="group-content">
+                <span class="group-name" x-text="group.name"></span>
+              </div>
+              <div class="group-actions">
+                <button class="action-btn" @click="openGroup(group.name)">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="action-btn" @click="()=>{
+                  previousRoute.push(appPage);
+                  GroupManagement.newName = group.name;
+                  GroupManagement.newColor = group.color;
+                  page('GroupManagement/edit');
+                  GroupManagement.targetGroup = group;
+                }">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="action-btn delete" @click="deleteLedgerGroup(group.name)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Edit Group Pages -->
+  <template x-if="appPage == 'GroupManagement/edit'">
+    <div class="edit-group-page">
+      <div class="temp-head">
+        <div class="head-plus-btn">
+          <button @click="()=>{
+            page(previousRoute.pop());
+            GroupManagement.targetGroup = null;
+            GroupManagement.newName = '';
+            GroupManagement.newColor = '#333';
+          }" class="back-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h2>Edit Group</h2>
+        </div>
+        <span></span>
+      </div>
+      <div class="inner-page">
+        <div class="input-group">
+          <label for="group-name"><i class="fas fa-tag"></i> Group Name</label>
+          <input class="app-input" id="group-name" x-model="GroupManagement.newName" placeholder="Enter group name" />
+        </div>
+        <div class="input-group">
+          <label for="group-color"><i class="fas fa-paint-brush"></i> Group Color</label>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <input x-model="GroupManagement.newColor" class="app-input" id="group-color" type="color"
+              @input="GroupManagement.newColor = $event.target.value" />
+            <div id="output-color" :style="`background: ${GroupManagement.newColor}`"></div>
+          </div>
+        </div>
+        <button class="app-btn primary" @click="editLedgerGroup()">
+          <i class="fas fa-save"></i> Update Group
+        </button>
+      </div>
+    </div>
+  </template>
+
+
+  <!-- Add Group Page -->
+  <template x-if="appPage == 'GroupManagement/add'">
+    <div class="add-group-page">
+      <div class="temp-head">
+        <div class="head-plus-btn">
+          <button @click="page(previousRoute.pop())" class="back-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h2>Add Group</h2>
+        </div>
+        <span></span>
+      </div>
+      <div class="inner-page">
+        <div class="input-group">
+          <label for="group-name"><i class="fas fa-tag"></i> Group Name</label>
+          <input class="app-input" id="group-name" x-model="GroupManagement.newName" placeholder="Enter group name" />
+        </div>
+        <div class="input-group">
+          <label for="group-color"><i class="fas fa-paint-brush"></i> Group Color</label>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <input x-model="GroupManagement.newColor" class="app-input" id="group-color" type="color"
+              @input="GroupManagement.newColor = $event.target.value" />
+            <div id="output-color" :style="`background: ${GroupManagement.newColor}`"></div>
+          </div>
+        </div>
+
+        <!-- submit button -->
+        <button class="app-btn primary" @click="addLedgerGroup()">
+          <i class="fas fa-plus"></i> Add Group
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Group View Page -->
+  <template x-if="appPage == 'GroupManagement/view'">
+    <div class="group-view-page">
+      <div class="temp-head">
+        <div class="head-plus-btn">
+          <button @click="page(previousRoute.pop())" class="back-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h2>Group: <span x-text="GroupManagement.opened?.name"></span></h2>
+        </div>
+        <span></span>
+      </div>
+
+      <template x-if="GroupManagement.opened?.ledgers?.length > 0">
+        <div class="ledger-list inner-page">
+          <template x-for="ledger in GroupManagement.opened.ledgers" :key="ledger.name">
+            <div class="ledger-item" @click="openLedger(ledger.name)">
+              <div :style="`background: ${ledger.color}`" class="ledger-avatar">
+                <template x-if="ledger.icon">
+                  <i :class="ledger.icon"></i>
+                </template>
+                <template x-if="!ledger.icon">
+                  <span x-text="ledger.name.charAt(0).toUpperCase()"></span>
+                </template>
+              </div>
+              <div class="ledger-content">
+                <div class="ledger-header">
+                  <h3 x-text="ledger.name"></h3>
+                  <span class="total-amount">₹<span x-text="ledger.total || 0"></span></span>
+                </div>
+                <div class="ledger-subtitle">
+                  <template x-if="!ledger.latest_entrie_amount">
+                    <span class="no-entries">No entries yet</span>
+                  </template>
+                  <template x-if="ledger.latest_entrie_amount">
+                    <div class="latest-entry">
+                      <template x-if="ledger.name != ledger.latest_entrie_from_ledger">
+                        <span class="entry-direction">from <span
+                            x-text="ledger.latest_entrie_from_ledger"></span></span>
+                      </template>
+                      <template x-if="ledger.name == ledger.latest_entrie_from_ledger">
+                        <span class="entry-direction">to <span x-text="ledger.latest_entrie_to_ledger"></span></span>
+                      </template>
+                      <span class="entry-amount">₹<span x-text="ledger.latest_entrie_amount"></span></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <template
+        x-if="!GroupManagement.opened || !GroupManagement.opened.ledgers || GroupManagement.opened.ledgers.length === 0">
+        <div class="no-data inner-page">
+          <i class="fas fa-book-open"></i>
+          <p>No ledgers found for this group.</p>
+          <p>Go to accounts and click Manage Ledgers to create ledgers.</p>
+        </div>
+      </template>
+    </div>
+  </template>
+
+  <!-- Ledger Management Page -->
+  <template x-if="appPage == 'LedgerManagement'">
+    <div class="ledger-management-page">
+      <div class="temp-head">
+        <div class="head-plus-btn">
+          <button @click="page(previousRoute.pop())" class="back-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h2>Ledgers</h2>
+        </div>
+        <button class="app-btn primary" @click="()=>{previousRoute.push(appPage);page('LedgerManagement/add');}">
+          <i class="fas fa-plus"></i> Create
+        </button>
+      </div>
+      <div class="inner-page">
+        <div class="ledgers-list">
+          <template x-for="ledger in LedgerManagement.list" :key="ledger.name">
+            <div class="ledger-management-item">
+              <div :style="`background: ${ledger.color}`" class="ledger-avatar">
+                <template x-if="ledger.icon">
+                  <i :class="ledger.icon"></i>
+                </template>
+                <template x-if="!ledger.icon">
+                  <span x-text="ledger.name.charAt(0).toUpperCase()"></span>
+                </template>
+              </div>
+              <div class="ledger-content">
+                <span class="ledger-name" x-text="ledger.name"></span>
+                <span class="ledger-total">₹<span x-text="ledger.total ?? 0"></span></span>
+              </div>
+              <div class="ledger-actions">
+                <button class="action-btn" @click="editLedgerInit(ledger)">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="action-btn delete" @click="deleteLedger(ledger.name)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Add Ledger Pages -->
+  <template x-if="appPage == 'LedgerManagement/add'">
+    <div class="add-ledger-page">
+      <div class="temp-head">
+        <div class="head-plus-btn">
+          <button @click="page(previousRoute.pop())" class="back-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h2>Add Ledger</h2>
+        </div>
+        <span></span>
+      </div>
+      <div class="inner-page">
+
+        <!-- ledger name -->
+        <div class="input-group">
+          <label for="ledger-name"><i class="fas fa-book"></i> Ledger Name</label>
+          <input class="app-input" id="ledger-name" x-model="LedgerManagement.newLedger.name"
+            placeholder="Enter ledger name" />
+        </div>
+
+
+        <!-- select group -->
+        <div class="input-group">
+          <label for="group-name"><i class="fas fa-layer-group"></i> Select Group (Optional)</label>
+          <select id="group-name" x-model="LedgerManagement.newLedger.groupName" class="app-select">
+            <option value="">No group</option>
+            <template x-for="group in GroupManagement.list" :key="group.name">
+              <option :value="group.name" x-text="group.name"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- ledger icon -->
+        <div class="input-group">
+          <label for="ledger-icon"><i class="fa-solid fa-font-awesome"></i> Select Ledger Icon (Optional)</label>
+
+          <div x-data="{ open: false, selected: LedgerManagement.newLedger.icon }">
+            <!-- Clickable area (acts like the select button) -->
+            <div class="custom-dropdown" @click="open = !open">
+              <div class="custom-drop-down-value-field app-input">
+                <template x-if="selected">
+                  <i :class="selected"></i>
+                </template>
+                <template x-if="!selected">
+                  <span x-text="selected || 'No icon'"></span>
+                </template>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+
+              <!-- Dropdown options -->
+              <div x-show="open" @click.outside="open = false" class="custom-dropdown-value app-input">
+                <!-- "No Icon" Option -->
+                <div @click="open = false; selected = ''; LedgerManagement.newLedger.icon = ''" class="icons-container">
+                  No
+                </div>
+
+                <!-- Dynamic options -->
+                <template x-for="icon in LedgerManagement.icons" :key="icon">
+                  <div @click="selected = icon; LedgerManagement.newLedger.icon = icon; open = false;console.log(open)"
+                    class="icons-container">
+                    <i :class="icon"></i>
+                  </div>
+                </template>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+
+        <!-- submit btn -->
+        <button class="app-btn primary" @click="addLedger()">
+          <i class="fas fa-plus"></i> Add Ledger
+        </button>
+      </div>
+  </template>
+
+  <!-- Edit Ledger Page -->
+  <template x-if="appPage == 'LedgerManagement/edit'">
+    <div class="edit-ledger-page">
+      <div class="temp-head">
+        <div class="head-plus-btn">
+          <button @click="page(previousRoute.pop())" class="back-btn">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <h2>Edit Ledger</h2>
+        </div>
+        <span></span>
+      </div>
+      <div class="inner-page">
+
+        <!-- ledger Name -->
+        <div class="input-group">
+          <label for="edit-ledger-name"><i class="fas fa-book"></i> Ledger Name</label>
+          <input class="app-input" id="edit-ledger-name" x-model="LedgerManagement.editing.name" />
+        </div>
+
+        <!-- group name -->
+        <div class="input-group">
+          <label for="edit-group-name"><i class="fas fa-layer-group"></i> Group Name</label>
+          <select id="edit-group-name" x-model="LedgerManagement.editing.groupName" class="app-select">
+            <option value="">No group</option>
+            <template x-for="group in GroupManagement?.list">
+              <option :selected="LedgerManagement.editing.groupName == group.name" :value="group.name"
+                x-text="group.name"></option>
+            </template>
+          </select>
+        </div>
+
+
+        <!-- ledger icon -->
+        <div class="input-group">
+          <label for="ledger-icon"><i class="fa-solid fa-font-awesome"></i> Select Ledger Icon (Optional)</label>
+
+          <div x-data="{ open: false, selected: LedgerManagement.editing.icon }">
+            <!-- Clickable area (acts like the select button) -->
+            <div class="custom-dropdown" @click="open = !open">
+              <div class="custom-drop-down-value-field app-input">
+                <template x-if="selected">
+                  <i :class="selected"></i>
+                </template>
+                <template x-if="!selected">
+                  <span x-text="selected || 'No icon'"></span>
+                </template>
+                <i class="fas fa-chevron-down"></i>
+              </div>
+
+              <!-- Dropdown options -->
+              <div x-show="open" @click.outside="open = false" class="custom-dropdown-value app-input">
+                <!-- "No Icon" Option -->
+                <div @click="open = false; selected = ''; LedgerManagement.editing.icon = ''" class="icons-container">
+                  No
+                </div>
+
+                <!-- Dynamic options -->
+                <template x-for="icon in LedgerManagement.icons" :key="icon">
+                  <div @click="selected = icon; LedgerManagement.editing.icon = icon; open = false;console.log(open)"
+                    class="icons-container">
+                    <i :class="icon"></i>
+                  </div>
+                </template>
+              </div>
+
+            </div>
+
+          </div>
+
+
+
+        </div>
+
+        <button class="app-btn primary" @click="updateLedger()">
+          <i class="fas fa-save"></i> Update
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Dashboard & Reports Pages -->
+  <template x-if="appPage == 'Dashboards'">
+    <div class="dashboard-page">
+      <div class="temp-head">
+        <h2>Dashboard</h2>
+      </div>
+      <div class="inner-page coming-soon">
+        <i class="fas fa-chart-bar"></i>
+        <h3>Coming Soon...</h3>
+        <p>Dashboard features will be available in the next update.</p>
+      </div>
+    </div>
+  </template>
+
+  <!-- Reposrts -->
+  <template x-if="appPage == 'Reports'">
+    <div class="reports-page">
+      <div class="temp-head">
+        <h2>Reports</h2>
+      </div>
+      <div class="inner-page coming-soon">
+        <i class="fas fa-file-alt"></i>
+        <h3>Coming Soon...</h3>
+        <p>Reporting features will be available in the next update.</p>
+      </div>
+    </div>
+  </template>
+
+  <!-- Bottom Navigation -->
+  <div class="bottom-nav" x-ref="bottomNav">
+    <button class="nav-item" :class="{ active: appPage === 'Dashboards' }"
+      @click="()=>{page('Dashboards');previousRoute=[];getBottomNav();}">
+      <i class="fas fa-chart-bar"></i>
+      <span>Dashboard</span>
+    </button>
+    <button class="nav-item" :class="{ active: appPage === 'Reports' }"
+      @click="()=>{page('Reports');previousRoute=[];getBottomNav();}">
+      <i class="fas fa-file-alt"></i>
+      <span>Reports</span>
+    </button>
+    <button class="nav-item" :class="{ active: appPage === 'Accounts' }"
+      @click="()=>{page('Accounts');previousRoute=[];getBottomNav();}">
+      <i class="fas fa-book-open"></i>
+      <span>Accounts</span>
+    </button>
+    <button class="nav-item" :class="{ active: appPage === 'Settings' }"
+      @click="()=>{page('Settings');previousRoute=[];getBottomNav();}">
+      <i class="fas fa-cog"></i>
+      <span>Settings</span>
+    </button>
+  </div>
+
+  <!-- alert box -->
+  <div x-ref="alertBox" class="glass-overlay">
+    <div class="alert-box">
+      <div class="alert-icon">
+        ✓
+      </div>
+      <h3 class="alert-title">Success!</h3>
+      <p class="alert-message" x-text="alertMessage">
+      </p>
+      <button class="alert-button" @click="closeAlert()">
+        OK
+      </button>
+    </div>
+  </div>
+
+  <!-- confirmation box -->
+  <div x-ref="confirmationBox" class="glass-overlay">
+    <div class="confirmation-box">
+      <div class="confirmation-icon">
+        ⚠
+      </div>
+      <h3 class="confirmation-title">Please Confirm ?</h3>
+      <p x-ref="confirmationMessage" class="confirmation-message" x-text="this.confirmationMessage">
+      </p>
+      <div class="button-group">
+        <button class="btn btn-cancel" @click="handleCancel()">
+          Cancel
+        </button>
+        <button class="btn btn-confirm" @click="handleConfirm()">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- <script></script> -->
+  <!-- <script></script> -->
+
+  <!-- <script></script> -->
+
+  <!-- <script></script> -->
+
+  <!-- <script></script> -->
+
+  <!-- <script></script> -->
+  <!-- <script></script> -->
+
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script>
+    document.addEventListener("alpine:init", () => {
+      Alpine.data("App", () => ({
+        ACC: null,
+        appPage: "Accounts",
+        previousRoute: [],
+
+        GroupManagement: {
+          list: [],
+          newName: "",
+          newColor: "#333",
+          targetGroup: "",
+          opened: {
+            name: "",
+            ledgers: [],
+          },
+        },
+        LedgerManagement: {
+          list: [],
+          filteredList: [],
+          newLedger: {
+            name: "",
+            total: 0,
+            latest_entrie_amount: 0,
+            latest_entrie_time: "",
+            latest_entrie_from_ledger: "",
+            groupName: "",
+            icon: "",
+          },
+          editing: {},
+          targetLedgerName: "",
+          opened: {},
+          search: "",
+          icons: [
+            "fas fa-book",
+            "fas fa-wallet",
+            "fas fa-piggy-bank",
+            "fas fa-credit-card",
+            "fas fa-university",
+            "fas fa-cash-register",
+            "fas fa-money-bill-wave",
+            "fas fa-coins",
+            "fas fa-receipt",
+            "fas fa-file-invoice-dollar",
+            "fas fa-shopping-cart",
+            "fas fa-car",
+            "fas fa-home",
+            "fas fa-briefcase",
+            "fas fa-gift",
+            "fas fa-heart",
+            "fas fa-umbrella",
+            "fas fa-plane",
+            "fas fa-globe",
+            "fas fa-apple-alt",
+            "fas fa-lemon",
+            "fas fa-seedling",
+            "fas fa-tree",
+            "fas fa-bicycle",
+            "fas fa-bus",
+            "fas fa-train",
+            "fas fa-subway",
+            "fas fa-motorcycle",
+            "fas fa-truck",
+            "fas fa-taxi",
+            "fa-solid fa-folder"
+          ]
+        },
+
+        // createLedgerName is to_ledger
+        // LedgerName is from_ledger
+        EntriesManagement: {
+          placeholder: "Amount Ledger_Name Description",
+          createEntryStep: 0, // 0 -> empty, 1 -> amount, 2 -> to_ledger, 3 -> description
+          amountSplitIndex: 0,
+          ledgerSplitIndex: 0,
+          createAmount: "",
+          createLedgerName: "",
+          createDescription: "",
+          createImage: "",
+          ledgerName: "",
+          targetEntry: "", // entry id
+          list: [],
+          editing: {
+            amount: "",
+            description: "",
+            image: ""
+          },
+          isbackspacing: false,
+        },
+
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        // group mnagement methods ------=====>
+        async deleteLedgerGroup(groupName) {
+          this.showConfirmationBox("Are you sure you want to delete this group?", async () => {
+            try {
+
+              let isdeleted = await this.ACC.LedgerGroup.delete(groupName);
+              isdeleted && this.showAlert(`${groupName} is deleted successfully.`);
+              this.GroupManagement.list = await this.ACC.LedgerGroup.list();
+
+            } catch (error) {
+              this.showAlert(error);
+            }
+
+          });
+
+
+        },
+
+        // add ledger group
+        async addLedgerGroup() {
+          try {
+            if (this.GroupManagement.newName.trim()) {
+              let newGroup = {
+                name: this.GroupManagement.newName.trim(),
+                color: this.GroupManagement.newColor
+              }
+              let isGroupCreated = await this.ACC.LedgerGroup.add(newGroup);
+              isGroupCreated && this.showAlert(`${newGroup.name} created successfully`)
+              this.GroupManagement.newName = "";
+              this.page(this.previousRoute.pop());
+            }
+          } catch (error) {
+            this.showAlert(error);
+            return;
+
+          }
+        },
+
+
+        // renaming ledger group
+        async editLedgerGroup() {
+          try {
+            const newName = this.GroupManagement.newName;
+            const oldName = this.GroupManagement.targetGroup.name;
+
+            let group = {
+              name: newName,
+              color: this.GroupManagement.newColor
+            }
+
+            await this.ACC.LedgerGroup.edit(oldName, group);
+
+
+            // resetting stuff
+            this.GroupManagement.newName = "";
+            this.GroupManagement.newColor = "#333";
+            this.GroupManagement.targetGroup = "";
+            this.page(this.previousRoute.pop());
+            this.page("GroupManagement");
+          } catch (error) {
+            this.showAlert(error);
+          }
+        },
+
+        //  open  particular group
+        async openGroup(groupName) {
+          console.log("opening group:", groupName);
+          this.previousRoute.push(this.appPage); // sets the current in last index of previousRoute array
+          this.GroupManagement.opened.name = groupName;
+
+          // this.ACC.LedgerGroup.getLedgers()
+          const ledgers = await this.ACC.LedgerGroup.getLedgers(groupName);
+
+          console.log("Ledgers fetched for group:", groupName, ledgers);
+          this.GroupManagement.opened = {
+            name: groupName,
+            ledgers: Array.isArray(ledgers) ? [...ledgers] : [],
+          };
+          console.log(
+            this.GroupManagement.opened,
+            "ledgers inside GroupManagement,opened"
+          );
+          console.log("before changing page");
+
+          this.appPage = "GroupManagement/view";
+          console.log("after changing page");
+        },
+
+
+
+
+
+        // Ledger Management Methods ------------------------------------------>
+        // Ledger Management Methods ------------------------------------------>
+        // Ledger Management Methods ------------------------------------------>
+        // Ledger Management Methods ------------------------------------------>
+        // Ledger Management Methods ------------------------------------------>
+        // Ledger Management Methods ------------------------------------------>
+        // Ledger Management Methods ------------------------------------------>
+        // Ledger Management Methods ------------------------------------------>
+        // Ledger Management Methods ------------------------------------------>
+        async addLedger() {
+          try {
+            if (!this.LedgerManagement.newLedger.name.trim()) return;
+
+            let ledgerToAdd = JSON.parse(
+              JSON.stringify(this.LedgerManagement.newLedger)
+            );
+            // trimming each string entity in ledger
+            for (let key in ledgerToAdd) {
+              if (typeof ledgerToAdd[key] === "string") {
+                ledgerToAdd[key] = ledgerToAdd[key].trim();
+              }
+            }
+            console.log(ledgerToAdd)
+            let newlyCreatedLedger = await this.ACC.Ledger.add(ledgerToAdd);
+            this.LedgerManagement.newLedger = {
+              name: "",
+              total: 0,
+              latest_entrie_amount: 0,
+              latest_entrie_time: "",
+              latest_entrie_from_ledger: "",
+              groupName: "",
+            };
+            newlyCreatedLedger
+              ? this.showAlert(`${ledgerToAdd.name} is created Successfully.`)
+              : "";
+
+            this.previousRoute.pop(); // removing the last index of previousRoute array as we switch back to LedgerManagement page
+            this.page("LedgerManagement");
+
+            // this.appPage = "Accounts";
+          } catch (error) {
+            this.showAlert(error);
+            return;
+
+          }
+        },
+
+        // ddelete ledger-------------------------->
+        // ddelete ledger-------------------------->
+        // ddelete ledger-------------------------->
+        // ddelete ledger-------------------------->
+        // ddelete ledger-------------------------->
+        async deleteLedger(name) {
+          // try {
+          this.showConfirmationBox("Are you sure you want to delete this ledger?", async () => {
+
+            try {
+              const isDeleted = await this.ACC.Ledger.delete(name);
+              isDeleted && this.showAlert(`${name} is deleted successfully.`);
+              this.LedgerManagement.list = await this.ACC.Ledger.list();
+
+            } catch (error) {
+              this.showAlert(error);
+
+            }
+          });
+          // } catch (error) {
+          //   this.showAlert(error);
+          // }
+        },
+        editLedgerInit(ledger) {
+          this.previousRoute.push(this.appPage); // sets the current page route in last index of previousRoute array
+          this.LedgerManagement.targetLedgerName = ledger.name;
+          this.LedgerManagement.editing = JSON.parse(JSON.stringify(ledger));
+          this.appPage = "LedgerManagement/edit";
+        },
+
+        //  ledger update
+        async updateLedger() {
+          try {
+            // getting the ledger is currently active
+            let currentName = this.LedgerManagement.targetLedgerName;
+            const updatedLedger = this.LedgerManagement.editing;
+            if (!updatedLedger.name.trim()) return;
+            await this.ACC.Ledger.edit(currentName, updatedLedger);
+            console.log("inside update ledger");
+            this.page("LedgerManagement");
+            this.previousRoute.pop();// removing the last index of previousRoute array as we are already in LedgerManagement page 
+            requestAnimationFrame(() => {
+              console.log("after page change", this.previousRoute, this.appPage);
+            })
+          } catch (error) {
+            this.showAlert(error);
+          }
+        },
+
+
+        // open particular ledger
+        async openLedger(ledgerName, isPushNeededToPreviousRoute = true) {
+          try {
+
+            this.EntriesManagement.createEntryStep = 1;
+            this.EntriesManagement.createAmount = "";
+            this.EntriesManagement.createDescription = "";
+            this.EntriesManagement.createLedgerName = "";
+            this.EntriesManagement.createImage = "";
+
+
+            console.log("opening ledger:", ledgerName);
+
+            // fetch the ledger from DB
+            const ledger = await this.ACC.db.Ledger.get(ledgerName);
+            console.log(ledger);
+
+            if (!ledger) {
+              this.showAlert(`Ledger '${ledgerName}' not found`);
+              return;
+            }
+
+            // store the opened ledger in state
+            this.LedgerManagement.opened = ledger;
+            this.EntriesManagement.ledgerName = ledgerName;
+            // Get entries where ledger belongs in any from_ledger or to_ledger field
+            const allEntries = await this.ACC.Entrie.list(
+              this.EntriesManagement.ledgerName
+            );
+
+            // results
+            this.EntriesManagement.list = allEntries;
+            allEntries.forEach(element => {
+              console.log(element.created_on)
+            });
+            // console.log(allEntries);
+
+            // pushing current route to previousRoute array if needed
+            if (isPushNeededToPreviousRoute) this.previousRoute.push(this.appPage);
+            // sets the current route in last index of previousRoute array before changing the page
+            console.log(this.previousRoute, "before set");
+            this.previousRoute = [...new Set(this.previousRoute)];
+
+            // Navigate to a new page for viewing updated ledger details
+            this.appPage = "LedgerView";
+            this.scrollLedgerToBottom();
+          } catch (error) {
+            this.showAlert(error);
+          }
+        },
+
+
+        async handleLedgerSearch() {
+          console.log("searching for:", this.LedgerManagement.search);
+          let searchTerm = this.LedgerManagement.search.toLowerCase().trim();
+          if (!searchTerm) {
+            this.LedgerManagement.list = await this.ACC.Ledger.list();
+            return;
+          }
+          this.LedgerManagement.list = this.LedgerManagement.list.filter(ledger => ledger.name.toLowerCase().includes(searchTerm));
+        },
+
+
+
+
+
+
+
+        // methods for entry creation -------------------------->
+        // entry creation Methods ------------------------------------------>
+        // entry creation Methods ------------------------------------------>
+        // entry creation Methods ------------------------------------------>
+        // entry creation Methods ------------------------------------------>
+        // entry creation Methods ------------------------------------------>
+        // entry creation Methods ------------------------------------------>
+        // entry creation Methods ------------------------------------------>
+
+        // entry creation Methods ------------------------------------------>
+
+
+        // handle image upload cancelation
+        cancelImageUpload() {
+          this.EntriesManagement.createImage = "";
+        },
+
+
+        // handling entrie creation in single function 
+        async handleEntryStepFinal(swapLedger = false) {
+          try {
+            this.getBottomNav()
+
+            // setting up description
+            this.EntriesManagement.createDescription = this.$refs.entryInput.value.slice(this.EntriesManagement.ledgerSplitIndex).trim();
+            console.log("description set to:", this.EntriesManagement.createDescription);
+            console.log("finalizing entry creation", this.EntriesManagement);
+            this.$refs.entryInput.value = ""; // restoring input field
+
+            // creating new entrie object to create entrie
+            let newEntrie = {
+              amount: this.EntriesManagement.createAmount,
+              from_ledger: this.EntriesManagement.ledgerName,
+              to_ledger: this.EntriesManagement.createLedgerName,
+              description: this.EntriesManagement.createDescription,
+              image: this.EntriesManagement.createImage,
+              created_on: new Date(),
+            };
+            if (swapLedger) {
+              newEntrie.from_ledger = this.EntriesManagement.createLedgerName;
+              newEntrie.to_ledger = this.EntriesManagement.ledgerName;
+            }
+
+            await this.ACC.Entrie.add(newEntrie);
+
+
+            // resetting to step one
+            this.resetEntryProcess(0)
+
+            // removing focus from input field
+            this.$refs.entryInput.blur()
+
+            // in this this reopening current ledger to fetch the updated entries and total
+            // but pushing route to previousRoute array is not needed as we are already in LedgerView page
+            this.openLedger(this.EntriesManagement.ledgerName, false); // true is passed to avoid pushing the current route again to previousRoute array
+
+
+          } catch (error) {
+            // reseting EntriManagement object
+            this.resetEntryProcess(0);
+            this.$refs.entryInput.blur();
+            this.showAlert(error);
+          }
+        },
+
+
+
+        // handling filteration inside ledger suggestion box
+        async handleSuggestionFilter(searchTerm) {
+          console.log("filtering for:", searchTerm);
+          searchTerm = searchTerm.trim().toLowerCase();
+          if (!searchTerm) {
+            this.LedgerManagement.filteredList = await this.ACC.Ledger.list();
+            this.reloacateSuggestionBox()
+            return;
+          }
+          this.LedgerManagement.filteredList = this.LedgerManagement.list.filter(ledger => ledger.name.toLowerCase().includes(searchTerm));
+          // console.log(this.LedgerManagement.filteredList);
+          this.reloacateSuggestionBox()
+
+        },
+
+        // handling click on ledger inside the ledger suggestion box
+        async handleSuggestionClick(name) {
+
+          console.log("triggered:", name);
+          this.EntriesManagement.createLedgerName = name;
+          this.$refs.entryInput.value = this.EntriesManagement.createAmount + " " + name + " ";
+
+          // setting ledger split index that will be used to extract out description from input value at the time of submission
+          this.EntriesManagement.ledgerSplitIndex = this.$refs.entryInput.value.length - 1; // seting index for next slice
+
+
+          this.hideSuggestedLedgers();
+          this.$refs.entryInput.focus()
+          this.LedgerManagement.list = await this.ACC.Ledger.list();
+          this.EntriesManagement.createEntryStep = 3
+          this.EntriesManagement.placeholder = "Description";
+          this.$refs.emptySpace.style.width = `${this.$refs.entryInput.value.length * 7}px`;
+
+        },
+
+
+
+        // used by handle entry creation function placed just below
+        isLedgerBoxActivated: false,
+        startFilteration: false,
+
+
+
+
+        // entry handling main function
+        // entry handling main function
+        // entry handling main function
+        // entry handling main function
+        // entry handling main function
+        // entry handling main function
+        handleEntrieCreation(event) {
+
+
+          if (!this.$refs.entryInput) return;
+          if (event.target.value.length === 0) {
+            this.resetEntryProcess(0);
+            return;
+          }
+
+
+          // checking if backspace is pressed
+          if (event.inputType === "deleteContentBackward") {
+            this.EntriesManagement.isbackspacing = true;
+          } else {
+            this.EntriesManagement.isbackspacing = false;
+          }
+
+
+          // mainly starting from here 
+          // mainly starting from here 
+          // mainly starting from here 
+          // mainly starting from here 
+          let inputValue = event.target.value;
+          let lastCharacterOfInput = inputValue[inputValue.length - 1];
+          let lastCharacterIndex = inputValue.length - 1;
+
+          this.$refs.emptySpace.style.width = `${event.target.value.length * 10}px`;
+
+          if (inputValue.length > 0 && this.EntriesManagement.createEntryStep == 0) {
+            this.EntriesManagement.createEntryStep = 1;
+            return;
+          }
+
+          // handling amount selection particularly
+
+          // step 1 -> amount
+          if (this.EntriesManagement.createEntryStep == 1) {
+
+            if (this.EntriesManagement.createAmount.trim().length > 0) {
+              this.EntriesManagement.placeholder = "Ledger_Name Description";
+            }
+            else {
+              this.EntriesManagement.placeholder = "Amount Ledger_Name Description";
+            }
+
+
+            // handling amount selection and ledger selection as well 
+            // maily it will trigger after amount is entered and space is pressed or any alphabet is pressed
+            // after that it will trigger for ledger selection as well
+            if (!this.isLedgerBoxActivated && isNaN(parseInt(lastCharacterOfInput))) {
+
+              // seeting amount to EntriesManagement
+              this.EntriesManagement.amountSplitIndex = lastCharacterIndex;
+              this.EntriesManagement.createAmount = inputValue.slice(0, this.EntriesManagement.amountSplitIndex).trim();
+              console.log("amount set to:", this.EntriesManagement.createAmount);
+              console.log(lastCharacterOfInput, lastCharacterIndex)
+
+              // starting with ledger selection
+              this.startFilteration = true;
+              this.isLedgerBoxActivated = true;
+              this.showSuggestedLedgers();
+              this.EntriesManagement.createEntryStep = 2;
+
+            }
+
+          }
+
+          // step 2 -> to_ledger
+          if (this.EntriesManagement.createEntryStep == 2) {
+
+            console.log("creating ledger step 2")
+            if (this.EntriesManagement.createLedgerName.trim().length > 0) {
+              this.EntriesManagement.placeholder = "Description";
+            }
+            else {
+              this.EntriesManagement.placeholder = "Ledger_Name Description";
+            }
+
+            // handling ledger selection particularly
+            if (this.isLedgerBoxActivated && this.startFilteration) {
+              console.log("handling ledger selection")
+              let ledgername = inputValue.slice(this.EntriesManagement.amountSplitIndex).trim();
+              if (ledgername.length > 0) {
+                this.handleSuggestionFilter(ledgername);
+                this.EntriesManagement.createLedgerName = ledgername;
+              }
+
+              console.log("ledger set to:", this.EntriesManagement.createLedgerName);
+
+
+
+
+            }
+
+          }
+
+
+          // step 3 -> description
+          if (this.EntriesManagement.createEntryStep == 3) {
+            if (inputValue.slice(this.EntriesManagement.ledgerSplitIndex).trim().length > 0) {
+              this.EntriesManagement.placeholder = "";
+            }
+            else {
+              this.EntriesManagement.placeholder = "Description";
+            }
+          }
+
+
+
+          // handling backspacing
+          // handling backspacing
+          // handling backspacing
+          if (this.EntriesManagement.isbackspacing) {
+            console.log("last char index", lastCharacterIndex)
+            console.log("last char", lastCharacterOfInput)
+            console.log("amount split index", this.EntriesManagement.amountSplitIndex)
+            console.log("ledger split index", this.EntriesManagement.ledgerSplitIndex)
+            // handing back spaces 
+            if (this.EntriesManagement.amountSplitIndex && lastCharacterIndex <= this.EntriesManagement.amountSplitIndex) {
+              console.log("stepped back step 1")
+              this.resetEntryProcess(1);
+            }
+            if (this.EntriesManagement.ledgerSplitIndex && lastCharacterIndex <= this.EntriesManagement.ledgerSplitIndex - 1) {
+              console.log("stepped back step 2")
+              this.resetEntryProcess(2);
+            }
+
+          }
+
+
+
+
+
+
+        },
+
+
+
+        // resetEntryProcess based on step
+        // resetEntryProcess based on step
+        // resetEntryProcess based on step
+        resetEntryProcess(step = 0) {
+          this.EntriesManagement.createEntryStep = step;
+
+
+          if (step == 0) {
+
+            this.EntriesManagement.createEntryStep = 1;
+            this.EntriesManagement.createAmount = "";
+            this.EntriesManagement.createDescription = "";
+            this.EntriesManagement.createLedgerName = "";
+            this.EntriesManagement.ledgerSplitIndex = 0;
+            this.EntriesManagement.amountSplitIndex = 0;
+            this.isLedgerBoxActivated = false;
+            this.startFilteration = false;
+            this.hideSuggestedLedgers();
+            this.EntriesManagement.placeholder = "Amount Ledger_Name Description";
+            this.$refs.emptySpace.style.width = "0px";
+            this.$refs.entryInput.value = ""; // restoring input field
+            this.LedgerManagement.filteredList = [];
+            this.EntriesManagement.createImage = "";
+            return;
+          }
+          if (step == 1) {
+            this.EntriesManagement.createEntryStep = 1;
+            this.EntriesManagement.createDescription = "";
+            this.EntriesManagement.createLedgerName = "";
+            this.EntriesManagement.ledgerSplitIndex = 0;
+            this.EntriesManagement.amountSplitIndex = 0;
+            this.isLedgerBoxActivated = false;
+            this.startFilteration = false;
+            this.hideSuggestedLedgers();
+            this.EntriesManagement.placeholder = "Ledger_Name Description";
+          }
+          if (step == 2) {
+            this.EntriesManagement.createDescription = "";
+            this.ledgerSplitIndex = 0;
+            this.showSuggestedLedgers();
+            this.startFilteration = true;
+            this.isLedgerBoxActivated = true;
+            this.EntriesManagement.placeholder = "Description";
+          }
+
+          // most likly not needed
+          if (step == 3) {
+            this.EntriesManagement.placeholder = "";
+          }
+        },
+
+
+
+        // handle edit click
+        handleEntrieEditClick(entry) {
+          entry = JSON.parse(JSON.stringify(entry));
+          const entryId = entry.id;
+          this.EntriesManagement.targetEntry = entryId;
+          this.EntriesManagement.editing = entry;
+          this.EntriesManagement.editing.image = entry.image
+          console.log(this.EntriesManagement.editing.image)
+          console.log("current entry", this.EntriesManagement.editing)
+          this.previousRoute.push('LedgerView');
+          this.page('Entrie/edit');
+        },
+
+        // handling file upload
+        handleImageUploadAtEdit(event) {
+          let file = event.target.files[0];
+          if (!file) return;
+          let reader = new FileReader();
+          reader.onload = (e) => {
+            this.EntriesManagement.editing.image = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        },
+
+
+        // update entry
+        async updateEntry() {
+          try {
+            const entryId = this.EntriesManagement.targetEntry;
+            const updatedEntry = this.EntriesManagement.editing;
+            if (!entryId) {
+              this.showAlert("No entry selected for editing.");
+              return;
+            }
+
+            let isupdated = await this.ACC.Entrie.edit(entryId, updatedEntry);
+            isupdated && this.showAlert("Entry updated successfully.");
+
+            // Reset editing state
+            this.EntriesManagement.targetEntry = "";
+            this.EntriesManagement.editing = {
+              amount: "",
+              description: "",
+              image: ""
+            };
+
+
+            // Refresh entries list
+            this.openLedger(this.EntriesManagement.ledgerName, false); // true is passed to avoid pushing the current route again to previousRoute array
+            this.previousRoute.pop(); // removing the last index of previousRoute array as we are already shifted to LedgerView page
+          } catch (error) {
+            console.log(error);
+            this.showAlert(error);
+          }
+        },
+
+
+        //handle delete entry 
+        async handleDeleteEntry(entryId) {
+          try {
+            if (!entryId) {
+              this.showAlert("No entry selected for deletion.");
+              return;
+            }
+
+            this.showConfirmationBox("Are you sure you want to delete this entry?", async () => {
+
+              let isDeleted = await this.ACC.Entrie.delete(entryId);
+              isDeleted && this.showAlert("Entry deleted successfully.");
+
+              // Refresh entries list
+              this.openLedger(this.EntriesManagement.ledgerName, false); // true is passed to avoid pushing the current route again to previousRoute array
+            });
+
+          } catch (error) {
+            console.log(error);
+            this.showAlert(error);
+          }
+        },
+
+
+
+
+
+        // handling swap entry 
+        async handleSwapEntry() {
+
+          try {
+            const entryId = this.EntriesManagement.targetEntry.id;
+            let updatedEntry = JSON.parse(JSON.stringify(this.EntriesManagement.targetEntry))
+
+            let from_ledger = updatedEntry.from_ledger;
+            let to_ledger = updatedEntry.to_ledger;
+
+            // let newUpdatedEntry
+
+
+
+            console.log(updatedEntry, "currententry")
+            console.log("Entry id", entryId)
+
+            updatedEntry.from_ledger = to_ledger;
+            updatedEntry.to_ledger = from_ledger;
+
+            // [updatedEntry.from_ledger,updatedEntry.to_ledger] = [updatedEntry.to_ledger,updatedEntry.from_ledger]
+
+
+            if (!entryId) {
+              this.showAlert("No entry selected for editing.");
+              return;
+            }
+
+            let isupdated = await this.ACC.Entrie.edit(entryId, updatedEntry);
+            isupdated && this.showAlert("Entry updated successfully.");
+
+            // Reset editing state
+            this.EntriesManagement.targetEntry = "";
+            // this.EntriesManagement.editing = {
+            //   amount: "",
+            //   description: "",
+            //   image: ""
+            // };
+
+
+            // Refresh entries list
+            this.openLedger(this.EntriesManagement.ledgerName, false); // true is passed to avoid pushing the current route again to previousRoute array
+          } catch (error) {
+            console.log(error);
+            this.showAlert(error);
+          }
+
+
+        },
+
+
+
+
+
+        // currently window is scrolling through the app , can be more specific
+        scrollLedgerToBottom() {
+          this.$nextTick(() => {
+            window.scrollTo({
+              top: document.body.scrollHeight,
+              // behavior: "smooth"
+            });
+          });
+        },
+
+
+        removeBottomNav() {
+          this.$nextTick(() => {
+            if (this.$refs.bottomNav && this.$refs.entryCreator && window.innerWidth < 800) {
+              this.$refs.bottomNav.style.display = "none";
+              this.$refs.entryCreator.style.bottom = "0px"
+            }
+          })
+        },
+        getBottomNav() {
+          this.$nextTick(() => {
+            if (this.$refs.bottomNav && this.$refs.entryCreator && window.innerWidth < 800) {
+              this.$refs.bottomNav.style.display = "flex";
+              this.$refs.entryCreator.style.bottom = "60px"
+            }
+          })
+        },
+
+        reloacateSuggestionBox() {
+          requestAnimationFrame(() => {
+            this.$refs.suggestionLedgers.style.display = "flex"
+            let offset = 200;
+            if (this.$refs.suggestionLedgers.offsetHeight > 200) {
+              offset = 200
+            } else {
+              offset = this.$refs.suggestionLedgers.offsetHeight;
+            }
+            this.$refs.suggestionLedgers.style.top = `-${offset + 20}px`
+            console.log(this.$refs.suggestionLedgers.style.top)
+            this.removeBottomNav()
+          })
+        },
+
+
+
+        // handling suggestion ledgers whlie creating entries
+        showSuggestedLedgers() {
+          if (this.$refs.suggestionLedgers) {
+            document.body.style.overflow = 'hidden'; // Disable body scroll
+            this.LedgerManagement.filteredList = this.LedgerManagement.list;
+            this.reloacateSuggestionBox()
+          }
+        },
+
+        hideSuggestedLedgers() {
+          if (this.$refs.suggestionLedgers) {
+            document.body.style.overflow = 'initial'; // restore body scroll
+            this.$refs.suggestionLedgers.style.display = "none"
+          }
+        },
+
+
+
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        // currently here
+        handleEntrieActionsVisibility(event) {
+          let target = event.target;
+          target.querySelector('.entry-actions');
+          console.log(target.querySelector('.entry-actions'))
+        },
+
+
+
+        // alpine initializer
+
+        async init() {
+          // try {
+          const { DATABASE } = await import("./database.js");
+          this.ACC = new DATABASE();
+          await this.ACC.initDB();
+          this.LedgerManagement.list = await this.ACC.Ledger.list();
+          this.GroupManagement.list = await this.ACC.LedgerGroup.list();
+
+          // } catch (error) {
+          //     alert('Error loading ledger groups:', error);
+          // }
+        },
+
+        async page(appPage) {
+          try {
+            if (appPage == "GroupManagement") {
+              this.GroupManagement.list = await this.ACC.LedgerGroup.list();
+            }
+            if (appPage == "Accounts") {
+              this.LedgerManagement.list = await this.ACC.Ledger.list();
+              this.previousRoute = [];
+            }
+            if (appPage == "LedgerManagement") {
+              this.LedgerManagement.list = await this.ACC.Ledger.list();
+            }
+            this.appPage = appPage;
+            this.$nextTick(() => {
+              window.scrollTo({
+                top: 0,
+                // behavior: "smooth"
+              });
+            });
+          } catch (e) {
+            console.log(e);
+          }
+        },
+
+        async BETAResetDB() {
+          try {
+            let confirmDelete = confirm('Are you sure you want to delete the entire database? This action cannot be undone.');
+            if (!confirmDelete) return;
+
+            let tableName = prompt("Type DataBase Name to confirm deletion:");
+            if (tableName === 'ACCOUNTS') {
+              indexedDB.deleteDatabase('ACCOUNTS');
+              setTimeout(() => {
+                location.reload();
+              }, 500);
+            } else {
+              alert('Database deletion cancelled.');
+            }
+          } catch (error) {
+            alert(error);
+          }
+        },
+
+        
+        alertMessage: "",
+        confirmationMessage: "",
+        functionToRunOnConfirm: () => { },
+        showAlert(message) {
+          this.alertMessage = message;
+          this.$refs.alertBox.style.display = 'flex';
+          this.$refs.alertBox.style.animation = 'slidein 0.3s ease-out';
+
+
+        },
+        closeAlert() {
+          this.$refs.alertBox.style.animation = 'slideOut 0.3s ease-in forwards';
+          setTimeout(() => {
+            this.$refs.alertBox.style.display = 'none';
+          }, 300);
+        },
+        handleCancel() {
+          console.log('Action cancelled');
+          this.functionToRunOnConfirm = () => { }
+          this.closeModal();
+        },
+
+        handleConfirm() {
+          console.log('Action confirmed');
+          this.functionToRunOnConfirm()
+          this.closeModal();
+        },
+        showConfirmationBox(message, callback = () => { }) {
+          this.confirmationMessage = message;
+          this.$nextTick(() => {
+            this.$refs.confirmationMessage.innerText = message;
+            this.$refs.confirmationBox.style.display = 'flex';
+            this.$refs.confirmationBox.style.animation = 'slidein 0.3s ease-out';
+          })
+          this.functionToRunOnConfirm = callback
+
+        },
+
+        closeModal() {
+          this.$refs.confirmationBox.style.animation = 'slideOut 0.3s ease-in forwards';
+          setTimeout(() => {
+            this.$refs.confirmationBox.style.display = 'none';
+          }, 300);
+        },
+
+
+
+      }));
+    });
+
+
+  </script>
+</body>
+
+</html>
